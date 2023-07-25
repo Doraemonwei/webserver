@@ -16,6 +16,10 @@ public:
     bool append(T * request);     
 
 private:
+    static void* worker(void* arg);
+    void run();
+
+private:
     // 线程的数量
     int m_thread_number;
     // 使用数组装线程
@@ -54,7 +58,7 @@ threadpool<T>::threadpool(int thread_number=8,int max_requests=10000) :
         // 创建thread_number个线程，并将他们设置为线程脱离
         for(int i=0;i<thread_number;i++){
             printf("正在创建第%d个线程\n",i);
-            if(pthread_create(m_threads+i,NULL,worker,NULL)!=0){
+            if(pthread_create(m_threads+i,NULL,worker,this)!=0){
                 delete [] m_threads;
                 throw std::exception();
             }
@@ -67,8 +71,55 @@ threadpool<T>::threadpool(int thread_number=8,int max_requests=10000) :
     }
 
 // 析构函数
+template<typename T>
+threadpool<T>::~threadpool(){
+    delete [] m_threads;
+    m_stop = true;
+}
 
+// 添加任务
+template<typename T>
+bool threadpool<T>::append(T *request){
+    m_queuelocker.lock();
+    if(m_workqueue.size()>m_max_requests){
+        m_queuelocker.unlock();
+        return false;
+    }
+    m_workqueue.push_back(request);
+    m_queuelocker.unlock();
+    m_queuestat.post();
+    return true;
+}
 
+// 实际执行的函数worker
+template<typename T>
+void* threadpool<T>::worker(void* arg){
+    threadpool* poll =(threadpool*) arg;
+    pool->run(); // worker函数的作用就是调用run函数
+    return pool;
+}
+
+// 具体的run函数
+template<typename T>
+void threadpool<T>::run(){
+    //这个线程一直运行直到m_stop为true
+    while(!m_stop){
+        m_queuestat.wait();
+        m_queuelocker.lock();
+        if(m_workqueue.empty()){
+            m_queuelocker.unlock();
+            continue;
+        }
+        T* request = m_workqueue.front();
+        m_workqueue.push_front();
+        m_queuelocker.unlock();
+        if(!request){
+            continue;
+        }
+        request->process();
+    }
+
+}
 
 
 #endif
