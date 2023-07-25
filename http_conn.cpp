@@ -1,0 +1,81 @@
+#include "http_conn.h"
+
+// 设置文件描述符为非阻塞
+int setnonblocking(int fd){
+    int old_flag = fcntl(fd,F_GETFL);
+    int new_flag = old_flag|O_NONBLOCK;
+    fcntl(fd,F_SETFL,new_flag);
+}
+
+
+// 添加文件描述符到epoll中,具体实现
+void addfd(int epollfd,int fd, bool oneshot){
+    epoll_event event;
+    event.data.fd=fd;
+    event.events = EPOLLIN | EPOLLRDHUP;
+    if(oneshot){
+        event.events|EPOLLONESHOT;
+    }
+    epoll_ctl(epollfd,EPOLL_CTL_ADD,fd,&event);
+
+    // 设置文件描述符非阻塞
+    setnonblocking(fd);
+}
+
+// 从epoll中删除文件描述符,具体实现
+void removefd(int epollfd,int fd, bool oneshot){
+    epoll_ctl(epollfd,EPOLL_CTL_DEL,fd,0);
+    close(fd);
+}
+
+// 修改epoll中的文件描述符
+void modfd(int epollfd,int fd, int ev){
+    epoll_event event;
+    event.data.fd=fd;
+    event.events = ev|EPOLLONESHOT|EPOLLRDHUP;
+    epoll_ctl(epollfd,EPOLL_CTL_MOD,fd,&event);
+}
+
+// 初始化新接受到的客户端的信息
+void http_conn::init(int sockfd, const sockaddr_in &addr){
+    m_sockfd = sockfd;
+    m_address = addr;
+
+    // 设置端口复用
+    int reuse=1;
+    setsockopt(m_sockfd, SOL_SOCKET,SO_REUSEADDR,&reuse, sizeof(reuse));
+
+    // 添加到epoll对象中，就不用再main中写了
+    addfd(m_epollfd,m_sockfd,true);
+    m_user_count++; // 用户数目加1
+}
+
+// 关闭连接
+void http_conn::close_conn(){
+    if(m_sockfd!=-1){
+        removefd(m_epollfd,m_sockfd,true);
+        m_sockfd=-1;
+        m_user_count--;
+    }
+}
+
+
+// 非阻塞读取数据
+bool http_conn::read(){
+    printf("一次性读完了数据\n");
+    return true;
+}
+// 非阻塞写数据
+bool http_conn::write(){
+    printf("一次性写完了数据\n");
+    return true;
+
+}
+
+
+// 响应并处理客户端的请求,处理http请求的入口函数
+void http_conn::process(){
+    // 解析http请求
+    printf("HTTP请求解析...\n");
+    // 生成响应
+}

@@ -46,7 +46,7 @@ private:
 template<typename T>
 threadpool<T>::threadpool(int thread_number=8,int max_requests=10000) :
     m_thread_number(thread_number),m_max_requests(max_requests),
-    m_stop(false),m_thread(NULL){
+    m_stop(false),m_threads(NULL){
         if((thread_number<=0)||(max_requests<=0)){
             throw std::exception();
         }
@@ -63,8 +63,8 @@ threadpool<T>::threadpool(int thread_number=8,int max_requests=10000) :
                 throw std::exception();
             }
             // 设置线程分离
-            pthread_detach(m_threads[i]){
-                delete [] m_threads;
+            if (pthread_detach(m_threads[i])){
+                delete[] m_threads;
                 throw std::exception();
             }   
         }
@@ -111,7 +111,7 @@ void threadpool<T>::run(){
             continue;
         }
         T* request = m_workqueue.front();
-        m_workqueue.push_front();
+        m_workqueue.pop_front();
         m_queuelocker.unlock();
         if(!request){
             continue;
