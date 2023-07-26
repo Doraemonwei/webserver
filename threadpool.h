@@ -44,13 +44,13 @@ private:
 // 具体的实现
 // 构造函数
 template<typename T>
-threadpool<T>::threadpool(int thread_number=8,int max_requests=10000) :
+threadpool<T>::threadpool(int thread_number,int max_requests) :
     m_thread_number(thread_number),m_max_requests(max_requests),
     m_stop(false),m_threads(NULL){
         if((thread_number<=0)||(max_requests<=0)){
             throw std::exception();
         }
-        m_threads = new pthread_t[m_thread_number]
+        m_threads = new pthread_t[m_thread_number];
         // 数组创建成功
         if(!m_threads){
             throw std::exception();
@@ -60,13 +60,16 @@ threadpool<T>::threadpool(int thread_number=8,int max_requests=10000) :
             printf("正在创建第%d个线程\n",i);
             if(pthread_create(m_threads+i,NULL,worker,this)!=0){
                 delete [] m_threads;
+                printf("线程创建失败，直接退出\n");
                 throw std::exception();
             }
             // 设置线程分离
             if (pthread_detach(m_threads[i])){
                 delete[] m_threads;
+                printf("线程分离失败，直接退出\n");
                 throw std::exception();
-            }   
+            } 
+            printf("第%d个线程创建成功\n",i);
         }
     }
 
@@ -94,7 +97,7 @@ bool threadpool<T>::append(T *request){
 // 实际执行的函数worker
 template<typename T>
 void* threadpool<T>::worker(void* arg){
-    threadpool* poll =(threadpool*) arg;
+    threadpool* pool =(threadpool*) arg;
     pool->run(); // worker函数的作用就是调用run函数
     return pool;
 }
@@ -118,8 +121,6 @@ void threadpool<T>::run(){
         }
         request->process();
     }
-
 }
-
 
 #endif

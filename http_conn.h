@@ -23,6 +23,8 @@ public:
     static int m_epollfd;
     // 统计用户的数量
     static int m_user_count;
+
+    // 构造与析构函数
     http_conn(){};
     ~http_conn(){};
     // 响应并处理客户端的请求
@@ -42,8 +44,6 @@ public:
 private:
     int m_sockfd; // 该http连接的socket
     sockaddr_in m_address; // 通信的socket地址
-
-
 };
 
 #endif

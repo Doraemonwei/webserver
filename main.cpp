@@ -15,7 +15,7 @@
 #include"http_conn.h"
 
 // 能保留的最大文件描述符数量，其实就是最大并发
-#define MAX_FD 65535
+#define MAX_FD 6553
 // 一次监听的最大连接数
 #define MAX_EVENT_NUMBER 10000 
 
@@ -29,9 +29,9 @@ void addsig(int sig, void(handler)(int)){
 }
 
 // 添加文件描述符到epoll中,具体实现在http_conn.cpp中
-extern void addfd(int epollfd,int fd, bool oneshot);
+extern void addfd(int epollfd,int fd, bool one_shot);
 // 从epoll中删除文件描述符,具体实现在http_conn.cpp中
-extern void removefd(int epollfd,int fd, bool oneshot);
+extern void removefd(int epollfd,int fd);
 // 修改epoll中的文件描述符
 extern void modfd(int epollfd,int fd, int ev);
 
@@ -77,14 +77,14 @@ int main(int argc, char* argv[]){
     // 使用epol实现多路复用
     // 创建epoll对象
     epoll_event events[MAX_EVENT_NUMBER];
-    int epollfd=epoll_create1(5);
+    int epollfd=epoll_create(5);
     // 将监听的文件描述符添加到epoll中
     addfd(epollfd,listenfd,false);
     http_conn::m_epollfd = epollfd;
     while(true){
         int num = epoll_wait(epollfd,events,MAX_EVENT_NUMBER,-1);
         if((num<0)&&(errno!=EINTR)){
-            printf("epoll failure\n");
+            printf("epoll failure, epoll_wait时发生问题\n");
             break;
         }
 
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
                 // 将新的客户的数据初始化并放入数组中
                 users[connfd].init(connfd,client_address);
             } else if(events[i].events&(EPOLLHUP|EPOLLRDHUP|EPOLLERR)){
-                // 对方异常断开等错误时间，直接关闭连接
+                // 对方异常断开等错误事件，直接关闭连接
                 users[sockfd].close_conn();  
             } else if(events[i].events&EPOLLIN){
                 // 有信息被写入

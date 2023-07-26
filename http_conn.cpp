@@ -1,7 +1,12 @@
 #include "http_conn.h"
 
+// 所有的socket都被注册到同一个epoll对象中,初始化
+int http_conn:: m_epollfd=-1;
+// 统计用户的数量，初始化
+int http_conn::m_user_count=0;
+
 // 设置文件描述符为非阻塞
-int setnonblocking(int fd){
+void setnonblocking(int fd){
     int old_flag = fcntl(fd,F_GETFL);
     int new_flag = old_flag|O_NONBLOCK;
     fcntl(fd,F_SETFL,new_flag);
@@ -9,11 +14,11 @@ int setnonblocking(int fd){
 
 
 // 添加文件描述符到epoll中,具体实现
-void addfd(int epollfd,int fd, bool oneshot){
+void addfd(int epollfd,int fd, bool one_shot){
     epoll_event event;
     event.data.fd=fd;
     event.events = EPOLLIN | EPOLLRDHUP;
-    if(oneshot){
+    if(one_shot){
         event.events|EPOLLONESHOT;
     }
     epoll_ctl(epollfd,EPOLL_CTL_ADD,fd,&event);
@@ -23,7 +28,7 @@ void addfd(int epollfd,int fd, bool oneshot){
 }
 
 // 从epoll中删除文件描述符,具体实现
-void removefd(int epollfd,int fd, bool oneshot){
+void removefd(int epollfd,int fd){
     epoll_ctl(epollfd,EPOLL_CTL_DEL,fd,0);
     close(fd);
 }
@@ -53,7 +58,7 @@ void http_conn::init(int sockfd, const sockaddr_in &addr){
 // 关闭连接
 void http_conn::close_conn(){
     if(m_sockfd!=-1){
-        removefd(m_epollfd,m_sockfd,true);
+        removefd(m_epollfd,m_sockfd);
         m_sockfd=-1;
         m_user_count--;
     }
